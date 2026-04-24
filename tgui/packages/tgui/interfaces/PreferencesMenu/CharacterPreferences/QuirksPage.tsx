@@ -24,13 +24,9 @@ import { getRandomization, PreferenceList } from './MainPage';
 import { PersonalityPage } from './PersonalityPage';
 
 function getColorValueClass(quirk: Quirk) {
-  if (quirk.value > 0) {
-    return 'positive';
-  } else if (quirk.value < 0) {
-    return 'negative';
-  } else {
-    return 'neutral';
-  }
+  if (quirk.value > 0) return 'positive';
+  if (quirk.value < 0) return 'negative';
+  return 'neutral';
 }
 
 function getCorrespondingPreferences(
@@ -38,7 +34,7 @@ function getCorrespondingPreferences(
   relevant_preferences: Record<string, string> = {},
 ) {
   return Object.fromEntries(
-    filter(Object.entries(relevant_preferences), ([key, value]) =>
+    filter(Object.entries(relevant_preferences), ([key]) =>
       customization_options.includes(key),
     ),
   );
@@ -58,7 +54,7 @@ type QuirkProps = {
   quirkActionLocked: boolean;
 };
 
-function QuirkList(props: QuirkProps & QuirkListProps) {
+function QuirkGrid(props: QuirkProps & QuirkListProps) {
   const {
     quirks = [],
     selected,
@@ -69,143 +65,105 @@ function QuirkList(props: QuirkProps & QuirkListProps) {
   } = props;
 
   return (
-    <Stack vertical g={0}>
+    <Box
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))',
+        gap: '12.5%',
+        padding: '4px',
+      }}
+    >
       {quirks.map(([quirkKey, quirk]) => (
-        <Stack.Item key={quirkKey} m={0}>
-          <QuirkDisplay
-            handleClick={handleClick}
-            quirk={quirk}
-            quirkKey={quirkKey}
-            randomBodyEnabled={randomBodyEnabled}
-            selected={selected}
-            serverData={serverData}
-            quirkActionLocked={quirkActionLocked}
-          />
-        </Stack.Item>
+        <QuirkTile
+          key={quirkKey}
+          quirk={quirk}
+          quirkKey={quirkKey}
+          handleClick={handleClick}
+          selected={selected}
+          serverData={serverData}
+          randomBodyEnabled={randomBodyEnabled}
+          quirkActionLocked={quirkActionLocked}
+        />
       ))}
-    </Stack>
+    </Box>
   );
 }
 
 type QuirkDisplayProps = {
   quirk: Quirk & { failTooltip?: string };
-  // bugged
   quirkKey: string;
 } & QuirkProps;
 
-function QuirkDisplay(props: QuirkDisplayProps) {
+function QuirkTile(props: QuirkDisplayProps) {
   const { quirk, quirkKey, handleClick, selected, quirkActionLocked } = props;
-  const { icon, value, name, description, customizable, failTooltip } = quirk;
+  const { icon, name, description, value, failTooltip } = quirk;
 
-  const [customizationExpanded, setCustomizationExpanded] = useState(false);
+  const colorClass = getColorValueClass(quirk);
 
-  const className = 'PreferencesMenu__Quirks__QuirkList__quirk';
+  const baseColor = {
+    positive: '#3aa34a',
+    neutral: '#777',
+    negative: '#b54545',
+  }[colorClass];
 
-  const child = (
-    <Box
-      className={className}
-      style={{
-        opacity: props.quirkActionLocked ? 0.6 : 1,
-        pointerEvents: props.quirkActionLocked ? 'none' : 'auto',
-      }}
-      onClick={() => {
-        if (quirkActionLocked)
-          return;
-        if (selected) {
-          setCustomizationExpanded(false);
-        }
-
-        handleClick(quirkKey, quirk);
-      }}
-    >
-      <Stack fill g={0}>
-        <Stack.Item
-          align="center"
-          style={{
-            minWidth: '15%',
-            maxWidth: '15%',
-            textAlign: 'center',
-          }}
-        >
-          <Icon color="#333" fontSize={3} name={icon} />
-        </Stack.Item>
-
-        <Stack.Item
-          align="stretch"
-          ml={0}
-          style={{
-            borderRight: '1px solid black',
-          }}
-        />
-
-        <Stack.Item
-          grow
-          ml={0}
-          style={{
-            // Fixes an IE bug for text overflowing in Flex boxes
-            minWidth: '0%',
-          }}
-        >
-          <Stack vertical fill>
-            <Stack.Item
-              className={`${className}--${getColorValueClass(quirk)}`}
-              style={{
-                borderBottom: '1px solid black',
-                padding: '2px',
-              }}
-            >
-              <Stack
-                fill
-                style={{
-                  fontSize: '1.2em',
-                }}
-              >
-                <Stack.Item grow basis="content">
-                  <b>{name}</b>
-                </Stack.Item>
-
-                <Stack.Item>
-                  <b>{value}</b>
-                </Stack.Item>
-              </Stack>
-            </Stack.Item>
-
-            <Stack.Item
-              grow
-              basis="content"
-              mt={0}
-              style={{
-                padding: '3px',
-              }}
-            >
-              {description}
-              {!!customizable && (
-                <QuirkPopper
-                  {...props}
-                  customizationExpanded={customizationExpanded}
-                  setCustomizationExpanded={setCustomizationExpanded}
-                />
-              )}
-            </Stack.Item>
-          </Stack>
-        </Stack.Item>
-      </Stack>
+  const tooltipContent = (
+    <Box>
+      <Box bold>{name} ({value})</Box>
+      <Box>{description}</Box>
+      {failTooltip && (
+        <Box color="red" mt={1}>
+          {failTooltip}
+        </Box>
+      )}
     </Box>
   );
 
-  if (failTooltip) {
-    return <Tooltip content={failTooltip}>{child}</Tooltip>;
-  } else {
-    return child;
-  }
+  return (
+    <Tooltip content={tooltipContent}>
+      <Box
+        onClick={() => {
+          if (quirkActionLocked) return;
+          handleClick(quirkKey, quirk);
+        }}
+        style={{
+          position: 'relative',
+          width: '100%',
+          aspectRatio: '1 / 1',
+          backgroundColor: baseColor,
+          borderRadius: '6px',
+          cursor: quirkActionLocked ? 'not-allowed' : 'pointer',
+          opacity: quirkActionLocked ? 0.6 : 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Icon
+          name={icon}
+          style={{
+            fontSize: '2.5em',
+            transform: 'scale(0.75)',
+            color: 'white',
+          }}
+        />
+
+        {selected && (
+          <Box
+            style={{
+              position: 'absolute',
+              inset: '12%',
+              border: '3px solid rgba(255,255,255,0.5)',
+              borderRadius: '4px',
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+      </Box>
+    </Tooltip>
+  );
 }
 
-type QuirkPopperProps = {
-  customizationExpanded: boolean;
-  setCustomizationExpanded: (expanded: boolean) => void;
-} & QuirkDisplayProps;
-
-function QuirkPopper(props: QuirkPopperProps) {
+function QuirkPopper(props) {
   const { act, data } = useBackend<PreferencesMenuData>();
   const {
     customizationExpanded,
@@ -217,7 +175,6 @@ function QuirkPopper(props: QuirkPopperProps) {
   } = props;
 
   const { customizable, customization_options } = quirk;
-
   const { character_preferences } = data;
 
   const hasExpandableCustomization =
@@ -234,16 +191,12 @@ function QuirkPopper(props: QuirkPopperProps) {
       content={
         hasExpandableCustomization && (
           <Box
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
+            onClick={(e) => e.stopPropagation()}
             style={{
               boxShadow: '0px 4px 8px 3px rgba(0, 0, 0, 0.7)',
             }}
           >
-            {/* SKYRAT EDIT START - maxWidth to 400px from 300px */}
             <Stack maxWidth="400px" backgroundColor="black" px="5px" py="3px">
-              {/* SKYRAT EDIT END - maxWidth to 400px from 300px */}
               <Stack.Item>
                 <PreferenceList
                   preferences={getCorrespondingPreferences(
@@ -272,9 +225,7 @@ function QuirkPopper(props: QuirkPopperProps) {
             selected={customizationExpanded}
             icon="cog"
             tooltip="Customize"
-            style={{
-              float: 'right',
-            }}
+            style={{ float: 'right' }}
           />
         )}
       </div>
@@ -283,8 +234,6 @@ function QuirkPopper(props: QuirkPopperProps) {
 }
 
 function StatDisplay(props) {
-  const { children } = props;
-
   return (
     <Box
       backgroundColor="#eee"
@@ -294,7 +243,7 @@ function StatDisplay(props) {
       px={3}
       py={0.5}
     >
-      {children}
+      {props.children}
     </Box>
   );
 }
@@ -302,7 +251,6 @@ function StatDisplay(props) {
 function QuirkPage() {
   const { act, data } = useBackend<PreferencesMenuData>();
 
-  // this is mainly just here to copy from MainPage.tsx
   const [randomToggleEnabled] = useRandomToggleState();
   const randomBodyEnabled =
     data.character_preferences.non_contextual.random_body !==
@@ -317,19 +265,17 @@ function QuirkPage() {
 
   function withQuirkDebounce(debounce: () => void, delay = 200) {
     if (quirkActionLocked) return;
-
     setQuirkActionLocked(true);
     debounce();
-
-    setTimeout(() => {
-      setQuirkActionLocked(false);
-    }, delay);
+    setTimeout(() => setQuirkActionLocked(false), delay);
   }
 
   const [searchQuery, setSearchQuery] = useState('');
   const server_data = useServerPrefs();
   if (!server_data) return;
-  const quirkSearch = createSearch(searchQuery, (quirk: Quirk) => quirk.name);
+
+  const quirkSearch = createSearch(searchQuery, (q: Quirk) => q.name);
+
   const {
     max_positive_quirks: maxPositiveQuirks,
     quirk_blacklist: quirkBlacklist,
@@ -338,32 +284,12 @@ function QuirkPage() {
   } = server_data.quirks;
 
   const quirks = Object.entries(quirkInfo);
-  quirks.sort(([_, quirkA], [__, quirkB]) => {
-    if (quirkA.value === quirkB.value) {
-      return quirkA.name > quirkB.name ? 1 : -1;
-    } else {
-      return quirkA.value - quirkB.value;
-    }
-  });
+  quirks.sort(([_, a], [__, b]) =>
+    a.value === b.value ? (a.name > b.name ? 1 : -1) : a.value - b.value,
+  );
 
-  // BUBBER EDIT START - Better Quirk Count Code
   const balance = -data.quirks_balance;
   const positiveQuirks = data.positive_quirk_count;
-  // BUBBER EDIT END - Better Quirk Count Code
-
-  /* // BUBBER EDIT START - We handle this on the backend
-  for (const selectedQuirkName of selectedQuirks) {
-    const selectedQuirk = quirkInfo[selectedQuirkName];
-    if (!selectedQuirk) {
-      continue;
-    }
-    if (selectedQuirk.value > 0) {
-      positiveQuirks += 1;
-    }
-
-    balance += selectedQuirk.value;
-  }
-  */ // BUBBER EDIT END
 
   function getReasonToNotAdd(quirkName: string) {
     const quirk = quirkInfo[quirkName];
@@ -376,172 +302,87 @@ function QuirkPage() {
       }
     }
 
-    const selectedQuirkNames = selectedQuirks.map((quirkKey) => {
-      return quirkInfo[quirkKey].name;
-    });
+    const selectedNames = selectedQuirks.map(
+      (k) => quirkInfo[k].name,
+    );
 
     for (const blacklist of quirkBlacklist) {
-      if (blacklist.indexOf(quirk.name) === -1) {
-        continue;
-      }
+      if (!blacklist.includes(quirk.name)) continue;
 
-      for (const incompatibleQuirk of blacklist) {
+      for (const incompatible of blacklist) {
         if (
-          incompatibleQuirk !== quirk.name &&
-          selectedQuirkNames.indexOf(incompatibleQuirk) !== -1
+          incompatible !== quirk.name &&
+          selectedNames.includes(incompatible)
         ) {
-          return `This is incompatible with ${incompatibleQuirk}!`;
+          return `This is incompatible with ${incompatible}!`;
         }
       }
     }
+
     if (data.species_disallowed_quirks.includes(quirk.name)) {
       return 'This quirk is incompatible with your selected species.';
     }
-    return;
   }
 
   function getReasonToNotRemove(quirkName: string) {
     const quirk = quirkInfo[quirkName];
-
     if (pointsEnabled && balance - quirk.value > 0) {
       return 'You need to remove a positive quirk first!';
     }
-
-    return;
   }
 
   return (
     <Stack fill>
       <Stack.Item basis="50%">
         <Stack vertical fill align="center">
-          <Stack.Item>
-            {maxPositiveQuirks > 0 ? (
-              <Box fontSize="1.3em">Positive Quirks</Box>
-            ) : (
-              <Box mt={pointsEnabled ? 3.4 : 0} />
-            )}
-          </Stack.Item>
+          <Box as="b" fontSize="1.6em">Available Quirks</Box>
 
-          <Stack.Item>
-            {maxPositiveQuirks > 0 ? (
-              <StatDisplay>
-                {positiveQuirks} / {maxPositiveQuirks}
-              </StatDisplay>
-            ) : (
-              <Box mt={pointsEnabled ? 3.4 : 0} />
-            )}
-          </Stack.Item>
+          <Input
+            placeholder="Search quirks..."
+            width="200px"
+            value={searchQuery}
+            onChange={setSearchQuery}
+          />
 
-          <Stack.Item>
-            <Box as="b" fontSize="1.6em">
-              Available Quirks
-            </Box>
-          </Stack.Item>
-          <Stack.Item>
-            <Input
-              placeholder="Search quirks..."
-              width="200px"
-              value={searchQuery}
-              onChange={setSearchQuery}
-            />
-          </Stack.Item>
-          <Stack.Item grow className="PreferencesMenu__Quirks__QuirkList">
-            <QuirkList
-              selected={false}
-              quirkActionLocked={quirkActionLocked}
-              handleClick={(quirkName, quirk) => {
-                if (getReasonToNotAdd(quirkName) !== undefined) {
-                  return;
-                }
+          <QuirkGrid
+            selected={false}
+            quirkActionLocked={quirkActionLocked}
+            handleClick={(quirkName, quirk) => {
+              const isSelected = selectedQuirks.includes(quirkName);
+
+              if (!isSelected) {
+                if (getReasonToNotAdd(quirkName)) return;
 
                 withQuirkDebounce(() => {
-                  setSelectedQuirks(selectedQuirks.concat(quirkName));
+                  setSelectedQuirks([...selectedQuirks, quirkName]);
                   act('give_quirk', { quirk: quirk.name });
                 });
-              }}
-              quirks={quirks
-                .filter(([quirkName, _]) => {
-                  return (
-                    selectedQuirks.indexOf(quirkName) === -1 &&
-                    quirkSearch(quirkInfo[quirkName])
-                  );
-                })
-                .map(([quirkName, quirk]) => {
-                  return [
-                    quirkName,
-                    {
-                      ...quirk,
-                      failTooltip: getReasonToNotAdd(quirkName),
-                    },
-                  ];
-                })}
-              serverData={server_data}
-              randomBodyEnabled={randomBodyEnabled}
-            />
-          </Stack.Item>
-        </Stack>
-      </Stack.Item>
-
-      <Stack.Item align="center">
-        <Icon name="exchange-alt" size={1.5} ml={2} mr={2} />
-      </Stack.Item>
-
-      <Stack.Item basis="50%">
-        <Stack vertical fill align="center">
-          <Stack.Item>
-            {pointsEnabled ? (
-              <Box fontSize="1.3em">Quirk Balance</Box>
-            ) : (
-              <Box mt={maxPositiveQuirks > 0 ? 3.4 : 0} />
-            )}
-          </Stack.Item>
-          <Stack.Item>
-            {pointsEnabled ? (
-              <StatDisplay>{balance}</StatDisplay>
-            ) : (
-              <Box mt={maxPositiveQuirks > 0 ? 3.4 : 0} />
-            )}
-          </Stack.Item>
-          <Stack.Item>
-            <Box as="b" fontSize="1.6em">
-              Current Quirks
-            </Box>
-          </Stack.Item>
-          <Stack.Item p={1.5} /> {/* Filler to better align the menu*/}
-          <Stack.Item grow className="PreferencesMenu__Quirks__QuirkList">
-            <QuirkList
-              selected
-              quirkActionLocked={quirkActionLocked}
-              handleClick={(quirkName, quirk) => {
-                if (getReasonToNotRemove(quirkName) !== undefined) {
-                  return;
-                }
+              } else {
+                if (getReasonToNotRemove(quirkName)) return;
 
                 withQuirkDebounce(() => {
                   setSelectedQuirks(
-                    selectedQuirks.filter((otherQuirk) => quirkName !== otherQuirk),
+                    selectedQuirks.filter((q) => q !== quirkName),
                   );
-
                   act('remove_quirk', { quirk: quirk.name });
                 });
-              }}
-              quirks={quirks
-                .filter(([quirkName, _]) => {
-                  return selectedQuirks.indexOf(quirkName) !== -1;
-                })
-                .map(([quirkName, quirk]) => {
-                  return [
-                    quirkName,
-                    {
-                      ...quirk,
-                      failTooltip: getReasonToNotRemove(quirkName),
-                    },
-                  ];
-                })}
-              serverData={server_data}
-              randomBodyEnabled={randomBodyEnabled}
-            />
-          </Stack.Item>
+              }
+            }}
+            quirks={quirks
+              .filter(([name]) => quirkSearch(quirkInfo[name]))
+              .map(([name, quirk]) => [
+                name,
+                {
+                  ...quirk,
+                  failTooltip:
+                    selectedQuirks.includes(name)
+                      ? getReasonToNotRemove(name)
+                      : getReasonToNotAdd(name),
+                },
+              ])}
+            serverData={server_data}
+            randomBodyEnabled={randomBodyEnabled}
+          />
         </Stack>
       </Stack.Item>
     </Stack>
@@ -549,9 +390,7 @@ function QuirkPage() {
 }
 
 export function QuirkPersonalityPage() {
-  const [contentPage, setContentPage] = useState<'quirks' | 'personality'>(
-    'quirks',
-  );
+  const [contentPage, setContentPage] = useState<'quirks' | 'personality'>('quirks');
 
   return (
     <Stack fill vertical>
@@ -562,8 +401,6 @@ export function QuirkPersonalityPage() {
               selected={contentPage === 'quirks'}
               onClick={() => setContentPage('quirks')}
               fluid
-              align="center"
-              fontSize="14px"
             >
               Quirks
             </Button>
@@ -573,16 +410,17 @@ export function QuirkPersonalityPage() {
               selected={contentPage === 'personality'}
               onClick={() => setContentPage('personality')}
               fluid
-              align="center"
-              fontSize="14px"
             >
               Personality
             </Button>
           </Stack.Item>
         </Stack>
       </Stack.Item>
+
       <Stack.Item grow>
-        {contentPage === 'personality' ? <PersonalityPage /> : <QuirkPage />}
+        {contentPage === 'personality'
+          ? <PersonalityPage />
+          : <QuirkPage />}
       </Stack.Item>
     </Stack>
   );
